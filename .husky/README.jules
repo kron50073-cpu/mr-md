@@ -1,0 +1,261 @@
+# Mr Markdown (`mr-md`) — Complete Repository & CLI Guide
+
+Welcome to the comprehensive repository guide for **Mr Markdown** (`mr-md`). This document explains the codebase structure, underlying architecture, features, and provides a beginner-friendly, step-by-step guide on how a normal person can use the CLI to create interactive learning materials.
+
+---
+
+## 1. Overview of the Repository
+
+**Mr Markdown** is an opinionated, high-performance Markdown framework built with [Bun](https://bun.sh) and TypeScript. It compiles standard and extended Markdown files into beautiful, interactive, single-page or multi-page static HTML web applications.
+
+### Key Features
+- **Interactive Simulations**: Embed JavaScript/TypeScript sandboxed canvas simulations natively using Markdown image syntax (`![Sim](./sim.js)`). Expose real-time UI sliders and controls via adjacent `.config.json` files.
+- **Interactive Quizzes**: Define multiple-choice quizzes in simple `.quiz.md` Markdown syntax and embed them seamlessly.
+- **Rich Media & YouTube**: Embed images, HTML5 video (`.mp4`, `.webm`), audio (`.mp3`, `.wav`), and YouTube videos with native Markdown embeds.
+- **LaTeX Math Support**: Native build-time math rendering powered by KaTeX (`$inline$` and `$$block$$`).
+- **Code Highlighting**: Syntax highlighting powered by Shiki with single-click code copying.
+- **Columns & Layouts**: Multi-column responsive side-by-side content using `<columns>` tags.
+- **Live Visual Theming Engine**: Switch between Light/Dark themes, visual palettes (*Ink*, *Field*, *Ember*, *Elixir*, *Trunk*, *Lava*), and UI styles (*Standard*, *Neo Brutalist*, *Playful*) directly in the browser.
+- **Hot Reloading Dev Server**: Built-in Bun HTTP & WebSocket server for live updates during authoring.
+
+---
+
+## 2. Codebase Architecture & Directory Breakdown
+
+```
+.
+├── .github/              # GitHub Actions CI/CD workflows (testing, linting, npm publishing)
+├── .husky/               # Git hooks (pre-commit checks) and repository documentation
+├── mr-markdown-documentation/ # Example documentation course showcasing framework features
+├── src/                  # Core TypeScript framework source code
+│   ├── builder/          # Programmatic builder, option normalization, and validation rules
+│   ├── cli/              # Command-line interface logic (dev server, build runner, generator)
+│   ├── client/           # Client-side bundle (router, theme system, interactive iframe bridge)
+│   ├── parser/           # Frontmatter, MDX, and Quiz Markdown parser engine
+│   ├── renderer/         # HTML template engine, Shiki syntax highlighter, KaTeX renderer, and block components
+│   ├── styles/           # Framework CSS theme definitions (theme.css)
+│   ├── cli.ts            # CLI binary entrypoint (`#!/usr/bin/env bun`)
+│   ├── index.ts          # Main library export entrypoint
+│   └── types.ts          # Complete TypeScript type definitions (Lesson, Chapter, Blocks, BuildOptions)
+├── test/                 # Test suite (CLI, unit tests, parser, renderer, block components, E2E browser tests)
+├── build.ts              # Framework build script bundling client assets and compiling TypeScript
+├── devbox.json           # Devbox environment configuration (Bun & Git setup)
+├── netlify.toml          # Netlify deployment configuration for documentation
+├── package.json          # Package manifest, dependencies, scripts, and executable bin mapping
+└── tsconfig.json         # TypeScript compiler configuration
+```
+
+### Core Source Code Modules (`src/`)
+
+1. **`src/cli.ts` & `src/cli/`**
+   - Handles command-line invocation (`mr-md <command>`).
+   - `cli/dev.ts`: Starts the local HTTP & WebSocket dev server with live reloading and automatic port fallback.
+   - `cli/build.ts`: Builds static output files in production mode.
+   - `cli/generate.ts`: Scaffolds new `.md` lesson files with auto-incrementing numeric index prefixes.
+   - `cli/chapter.ts`: Aggregates directory Markdown files into structured chapter navigation with strict sequence validation.
+
+2. **`src/parser/`**
+   - `parser/mdx.ts`: Uses `@11ty/gray-matter` for YAML frontmatter and `marked` for AST parsing. Converts image tags pointing to `.js`, `.json`, `.quiz.md`, `.mp4`, or YouTube URLs into rich internal block structures.
+   - `parser/quiz.ts`: Parses `.quiz.md` files into structured quiz question models (`++` correct, `--` incorrect, `>` explanation).
+
+3. **`src/renderer/`**
+   - Transforms parsed lesson blocks into sanitised HTML documents.
+   - Includes block renderers for callouts (`note`, `tip`, `warning`, `important`, `caution`), simulations, animations, quizzes, media, columns, and YouTube videos.
+   - `renderer/markdown/math.ts`: Bundles Shiki code syntax highlighting and KaTeX LaTeX parsing.
+
+4. **`src/client/`**
+   - Compiled into a single client-side runtime script (`app.bundle.js`).
+   - Manages client-side routing (PJAX navigation), sidebar collapsing, scroll-spy table of contents, quiz interactions, theme/palette/UI state persistence in `localStorage`, and postMessage communication with sandboxed simulation iframes.
+
+---
+
+## 3. How a Normal Person Can Use the CLI
+
+The `mr-md` CLI is designed to be friendly and easy to use. You don't need complex build tools or web configuration—just standard Markdown text files!
+
+### Prerequisites
+
+Ensure you have [Bun](https://bun.sh) installed on your system. You can install Bun on macOS/Linux/WSL by running:
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
+
+You can run `mr-md` directly without manual global installation by using `bunx mr-md`.
+
+---
+
+### Step 1: Creating a New Lesson (`generate` / `g`)
+
+To create a new lesson file, use the `generate` command (or its short alias `g`).
+
+```bash
+bunx mr-md generate "getting-started"
+```
+*or using the shortcut:*
+```bash
+bunx mr-md g "getting-started"
+```
+
+**What happens behind the scenes:**
+1. The CLI scans the current directory for existing `.md` files.
+2. It automatically calculates the next available numeric index (e.g. `01`, `02`, `03`).
+3. It creates a new file named `01-getting-started.md` with starter YAML frontmatter:
+
+```markdown
+---
+index: 1
+date: 2026-03-30
+author: ""
+tags: []
+---
+
+# getting-started
+```
+
+> **Tip:** You can specify subdirectories! For example, `bunx mr-md g lessons/intro` will automatically create the `lessons/` directory if it doesn't exist and place `01-intro.md` inside it.
+
+---
+
+### Step 2: Previewing Your Work in Real-Time (`dev`)
+
+To view your content in the browser while writing, start the local development server:
+
+#### Single File Mode
+To work on an individual lesson file:
+```bash
+bunx mr-md dev 01-getting-started.md
+```
+
+#### Directory / Course Mode
+To preview an entire course folder containing multiple lessons:
+```bash
+bunx mr-md dev .
+```
+
+**What to expect:**
+- Your default web browser address will be displayed (e.g., `http://localhost:3000`).
+- The server automatically opens a port (and automatically tries `3001`, `3002`, etc., if `3000` is busy).
+- Every time you save your Markdown file, your browser updates instantly without losing your scroll position!
+- Click the **Settings Gear** icon in the sidebar to test Light/Dark mode, change visual palettes (*Ink*, *Field*, *Ember*), or toggle UI styling (*Standard*, *Neo Brutalist*, *Playful*).
+
+---
+
+### Step 3: Writing Interactive Content in Markdown
+
+`mr-md` extends standard Markdown syntax with simple rules for interactive elements:
+
+#### 1. Callouts (Alert Boxes)
+Use standard blockquote syntax with `[!type]`:
+```markdown
+> [!note]
+> This is a general note.
+
+> [!tip]
+> Here is a handy shortcut!
+
+> [!warning]
+> Be careful with this operation.
+
+> [!important]
+> Critical alert for readers.
+```
+
+#### 2. KaTeX Math Formulas
+Inline math uses single `$`: `$E = mc^2$`
+Block math uses double `$$`:
+```markdown
+$$
+\int_{a}^{b} f(x) \, dx = F(b) - F(a)
+$$
+```
+
+#### 3. Interactive Quizzes
+Create a quiz file named `knowledge.quiz.md`:
+```markdown
+## What is the capital of France?
+
+-- London
+++ Paris
+-- Berlin
+
+> Paris is the capital and largest city of France.
+```
+Then embed it in your lesson file like an image:
+```markdown
+![Quick Check](./knowledge.quiz.md)
+```
+
+#### 4. Interactive JavaScript Simulations
+Create a simulation file `forces.js`:
+```javascript
+window.bkSetup(800, 500, function(ctx, fit) {
+  ctx.clearRect(0, 0, fit.width, fit.height);
+  ctx.fillStyle = window.bkColor("primary");
+  ctx.fillRect(50, 50, 100, 100);
+});
+```
+And embed it in your lesson:
+```markdown
+![Forces Simulation](./forces.js)
+```
+
+#### 5. Responsive Columns
+Use the `<columns>` tag for side-by-side text or code comparisons:
+```html
+<columns label="Comparison">
+  <column markdown="**Option A**: Description here..." />
+  <column markdown="**Option B**: Description here..." />
+</columns>
+```
+
+---
+
+### Step 4: Building for Production (`build`)
+
+When your content is ready to be published to the web, compile it into static HTML:
+
+#### Single File Build
+```bash
+bunx mr-md build 01-getting-started.md
+```
+
+#### Whole Directory / Chapter Build
+```bash
+bunx mr-md build .
+```
+
+**Output:**
+- Static output files are placed in an `out/` folder next to your Markdown files.
+- The compiled HTML files are standalone, self-contained, and ready to upload directly to platforms like **GitHub Pages**, **Vercel**, **Netlify**, or **Cloudflare Pages**.
+
+---
+
+### Utility Commands Summary
+
+| Command | Short Alias | Usage | Description |
+|---|---|---|---|
+| `mr-md generate <name>` | `mr-md g <name>` | `bunx mr-md g lesson1` | Scaffolds a new numbered `.md` lesson file with YAML metadata |
+| `mr-md dev <target>` | — | `bunx mr-md dev .` | Starts live-reloading development server on target file or directory |
+| `mr-md build <target>` | — | `bunx mr-md build .` | Compiles target file or directory into static production HTML in `./out` |
+| `mr-md --help` | `mr-md -h` | `bunx mr-md --help` | Displays available CLI commands and help information |
+| `mr-md --version` | `mr-md -v` | `bunx mr-md --version` | Outputs current installed `mr-md` version |
+
+---
+
+## 4. Running Tests & Quality Verification
+
+If you are modifying the repository code, you can verify changes using the built-in scripts:
+
+```bash
+# Run full unit and integration test suite
+bun run test
+
+# Check code formatting and linting
+bun run lint
+
+# Automatically format code according to repo standards
+bun run format
+
+# Perform full build of framework
+bun run build
+```
